@@ -50,11 +50,26 @@ jobs:
             --output output.mp4
 
       - name: Salvar artefato
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: avatar-video
           path: output.mp4
 
-      - name: Limpar arquivos temporários
+      - name: Limpar arquivos temporários locais
         run: |
           rm -f input_image input_audio output.mp4
+
+      - name: Excluir arquivos do Release
+        if: ${{ always() }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_URL: ${{ github.event.inputs.image_url }}
+          AUDIO_URL: ${{ github.event.inputs.audio_url }}
+        run: |
+          # Extrair IDs dos assets a partir da URL
+          IMAGE_ID=$(curl -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$IMAGE_URL" | jq -r '.id')
+          AUDIO_ID=$(curl -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$AUDIO_URL" | jq -r '.id')
+
+          # Excluir assets se existirem
+          [ "$IMAGE_ID" != "null" ] && curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/$IMAGE_ID"
+          [ "$AUDIO_ID" != "null" ] && curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/$AUDIO_ID"
