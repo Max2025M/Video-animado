@@ -1,0 +1,9 @@
+Flask
+numpy
+opencv-python-headless
+moviepy==1.0.3
+pydub
+librosa
+soundfile
+mediapipe
+imageio[ffmpeg]
