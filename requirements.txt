@@ -1,9 +1,8 @@
-Flask
-numpy
+torch
+torchvision
 opencv-python-headless
-moviepy==1.0.3
-pydub
-librosa
-soundfile
-mediapipe
+numpy
+gdown
 imageio[ffmpeg]
+scipy
+tqdm
