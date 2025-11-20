@@ -9,20 +9,15 @@ on:
       audio_url:
         description: "URL direto do áudio do Google Drive"
         required: true
-      start:
-        description: "Início do áudio (s)"
-        required: false
-        default: "0"
-      end:
-        description: "Fim do áudio (s)"
-        required: false
-        default: "0"
 
 jobs:
   generate:
     runs-on: ubuntu-latest
 
     steps:
+      # ==========================================================
+      # Configurar Python
+      # ==========================================================
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -31,77 +26,84 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      # ==========================================================
+      # Instalar dependências do sistema
+      # ==========================================================
       - name: Instalar dependências do sistema
         run: |
           sudo apt-get update && sudo apt-get install -y \
-            ffmpeg libsm6 libxext6 libxrender1 build-essential \
+            ffmpeg \
+            libsm6 \
+            libxext6 \
+            libxrender1 \
+            build-essential \
             && sudo rm -rf /var/lib/apt/lists/*
 
+      # ==========================================================
+      # Instalar dependências Python
+      # ==========================================================
       - name: Instalar dependências Python
         run: |
           python -m pip install --upgrade pip
-          pip install Flask numpy opencv-python-headless moviepy==1.0.3 \
-                      pydub librosa soundfile mediapipe "imageio[ffmpeg]"
+          pip install numpy
+          pip install opencv-python-headless
+          pip install moviepy==1.0.3
+          pip install pydub
+          pip install librosa
+          pip install soundfile
+          pip install mediapipe
+          pip install "imageio[ffmpeg]"
 
+      # ==========================================================
+      # Baixar arquivos (links diretos do Google Drive)
+      # ==========================================================
       - name: Baixar arquivos
         run: |
-          echo "[LOG] Baixando imagem..."
+          echo "Baixando imagem..."
           wget -O input_image "${{ github.event.inputs.image_url }}"
-          echo "[LOG] Baixando áudio..."
+          echo "Baixando áudio..."
           wget -O input_audio "${{ github.event.inputs.audio_url }}"
+          
+          echo ""
           echo "=== Arquivos baixados ==="
           ls -lh input_image input_audio
           echo "========================="
 
-      - name: Cortar áudio
-        env:
-          START: ${{ github.event.inputs.start }}
-          END: ${{ github.event.inputs.end }}
-        run: |
-          python -c "
-import os
-from pydub import AudioSegment
-
-audio_in = 'input_audio'
-audio_out = 'input_audio_trimmed.wav'
-
-start_sec = float(os.environ.get('START', '0'))
-end_sec = float(os.environ.get('END', '0'))
-
-audio = AudioSegment.from_file(audio_in)
-
-if end_sec > start_sec and end_sec <= len(audio)/1000.0:
-    trimmed = audio[start_sec*1000:end_sec*1000]
-else:
-    trimmed = audio[start_sec*1000:]
-
-trimmed.export(audio_out, format='wav')
-print(f'[LOG] Áudio cortado salvo em {audio_out}, duração: {len(trimmed)/1000:.2f}s')
-"
-
+      # ==========================================================
+      # Mostrar informações da imagem
+      # ==========================================================
       - name: Informações da imagem
         run: |
-          python -c "
+          python - <<EOF
 import cv2
-img = cv2.imread('input_image')
+img = cv2.imread("input_image")
 h, w = img.shape[:2]
-print(f'[LOG] Imagem input_image: {w}x{h} pixels')
-"
+print(f"[LOG] Imagem input_image: {w}x{h} pixels")
+EOF
 
+      # ==========================================================
+      # Gerar vídeo
+      # ==========================================================
       - name: Gerar vídeo
         run: |
           python generate_avatar.py \
             --image input_image \
-            --audio input_audio_trimmed.wav \
+            --audio input_audio \
             --output output.mp4
 
+      # ==========================================================
+      # Salvar artefato
+      # ==========================================================
       - name: Salvar artefato
         uses: actions/upload-artifact@v4
         with:
           name: avatar-video
           path: output.mp4
 
+      # ==========================================================
+      # Limpar arquivos temporários (executa sempre)
+      # ==========================================================
       - name: Limpar arquivos temporários
         if: ${{ always() }}
         run: |
-          rm -f input_image input_audio input_audio_trimmed.wav output.mp4
+          rm -f input_image input_audio output.mp4
