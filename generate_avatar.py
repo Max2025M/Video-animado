@@ -1,16 +1,10 @@
 import os
-import uuid
-import base64
-import tempfile
-from pathlib import Path
 import sys
 import traceback
-
-from pydub import AudioSegment
-import numpy as np
+from pathlib import Path
 import cv2
+import numpy as np
 import moviepy.editor as mpy
-import librosa
 import soundfile as sf
 import mediapipe as mp
 import random
@@ -23,21 +17,8 @@ def log(msg):
     print(f"[LOG] {msg}", flush=True)
 
 # ----------------------------
-def save_base64_file(base64_str, suffix):
-    data = base64.b64decode(base64_str)
-    path = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}{suffix}"
-    with open(path, "wb") as f:
-        f.write(data)
-    return path
-
-# ----------------------------
-def trim_audio(in_path, out_path, start_ms=0, end_ms=None):
-    audio = AudioSegment.from_file(in_path)
-    trimmed = audio[start_ms:] if end_ms is None else audio[start_ms:end_ms]
-    trimmed.export(out_path, format="wav")
-    return out_path
-
 def amplitude_envelope(wav_path, sr=16000, hop_length=512):
+    import librosa
     y, sr = librosa.load(wav_path, sr=sr)
     env = np.array([np.max(np.abs(y[i:i+hop_length])) for i in range(0, len(y), hop_length)])
     if env.max() > 0:
@@ -51,6 +32,7 @@ def generate_animation(image_path, audio_path, out_path, fps=25,
         log("Carregando imagem...")
         img = cv2.imread(str(image_path))
         h, w = img.shape[:2]
+        log(f"Imagem carregada: {w}x{h} pixels")
 
         with mp_face.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True) as face_mesh:
             rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -86,6 +68,8 @@ def generate_animation(image_path, audio_path, out_path, fps=25,
         audio_info = sf.info(audio_path)
         duration = audio_info.duration
         total_frames = max(1, int(duration*fps))
+        log(f"Áudio carregado: duração {duration:.2f}s, frames totais: {total_frames}")
+
         frames = []
         env_frame = np.interp(np.linspace(0,len(env)-1,total_frames), np.arange(len(env)), env)
 
@@ -127,50 +111,33 @@ def generate_animation(image_path, audio_path, out_path, fps=25,
 
             # Sobrancelhas
             for brow_box in [left_brow_box,right_brow_box]:
-                bx1,bx2,by1,by2 = brow_box[0],brow_box[1],brow_box[2],brow_box[3]
+                bx1,bx2,by1,by2 = brow_box[0], brow_box[1], brow_box[2], brow_box[3]
                 offset = int(env_frame[i]*brow_amp)
                 frame[by1-offset:by2-offset,bx1:bx2] = frame[by1:by2,bx1:bx2]
 
             frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            if i % 10 == 0:
+            if i % 10 == 0 or i == total_frames-1:
                 log(f"Progresso frames: {int((i+1)/total_frames*100)}%")
 
         log("Combinando frames e áudio...")
         clip = mpy.ImageSequenceClip(frames,fps=fps)
         clip = clip.set_audio(mpy.AudioFileClip(str(audio_path)))
         clip.write_videofile(str(out_path), codec="libx264", audio_codec="aac", verbose=False, logger=None)
-        log("Vídeo finalizado com sucesso!")
+        log(f"Vídeo finalizado com sucesso! Saída: {out_path}, duração: {clip.duration:.2f}s, frames: {len(frames)}")
 
     except Exception as e:
         log(f"Erro: {e}")
         traceback.print_exc()
         sys.exit(1)
-    finally:
-        try: os.remove(image_path)
-        except: pass
-        try: os.remove(audio_path)
-        except: pass
 
 # ----------------------------
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Gera avatar animado a partir de imagem e áudio Base64")
-    parser.add_argument("--image_b64", required=True, help="Imagem em Base64")
-    parser.add_argument("--audio_b64", required=True, help="Áudio em Base64 (qualquer formato)")
-    parser.add_argument("--start", type=float, default=0, help="Início do áudio em segundos")
-    parser.add_argument("--end", type=float, default=0, help="Fim do áudio em segundos")
+    parser = argparse.ArgumentParser(description="Gera avatar animado a partir de imagem e áudio")
+    parser.add_argument("--image", required=True, help="Caminho da imagem")
+    parser.add_argument("--audio", required=True, help="Caminho do áudio")
     parser.add_argument("--output", required=True, help="Caminho do vídeo de saída")
     args = parser.parse_args()
 
-    log("Salvando arquivos temporários...")
-    img_path = save_base64_file(args.image_b64, ".png")
-    audio_path = save_base64_file(args.audio_b64, ".wav")
-
-    if args.end > args.start:
-        temp_audio = Path(tempfile.gettempdir()) / f"trim_{uuid.uuid4().hex}.wav"
-        trim_audio(audio_path, temp_audio, int(args.start*1000), int(args.end*1000))
-        os.remove(audio_path)
-        audio_path = temp_audio
-
-    generate_animation(img_path, audio_path, args.output)
+    generate_animation(args.image, args.audio, args.output)
