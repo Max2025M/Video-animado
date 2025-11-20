@@ -1,97 +1,44 @@
-name: Gerar Avatar
+name: Avatar Video Generation
 
 on:
   workflow_dispatch:
-    inputs:
-      image_url:
-        description: "URL direto da imagem do Google Drive"
-        required: true
-      audio_url:
-        description: "URL direto do áudio do Google Drive"
-        required: true
 
 jobs:
-  generate:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # ==========================================================
-      # Configurar Python
-      # ==========================================================
-      - name: Setup Python
+      - name: Checar código
+        uses: actions/checkout@v3
+
+      - name: Instalar ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Configurar Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Cache modelos
+        uses: actions/cache@v3
+        with:
+          path: |
+            Wav2Lip
+            first-order-model
+            Wav2Lip.pth
+            fomm.pth
+          key: ${{ runner.os }}-avatar-models-v1
 
-      # ==========================================================
-      # Instalar dependências do sistema
-      # ==========================================================
-      - name: Instalar dependências do sistema
-        run: |
-          sudo apt-get update && sudo apt-get install -y \
-            ffmpeg \
-            libsm6 \
-            libxext6 \
-            libxrender1 \
-            build-essential \
-            && sudo rm -rf /var/lib/apt/lists/*
-
-      # ==========================================================
-      # Instalar dependências Python
-      # ==========================================================
       - name: Instalar dependências Python
         run: |
           python -m pip install --upgrade pip
-          pip install numpy
-          pip install opencv-python-headless
-          pip install moviepy==1.0.3
-          pip install pydub
-          pip install librosa
-          pip install soundfile
-          pip install mediapipe
-          pip install "imageio[ffmpeg]"
+          pip install -r requirements.txt
 
-      # ==========================================================
-      # Baixar arquivos (links diretos do Google Drive)
-      # ==========================================================
-      - name: Baixar arquivos
-        run: |
-          echo "Baixando imagem..."
-          wget -O input_image "${{ github.event.inputs.image_url }}"
-          echo "Baixando áudio..."
-          wget -O input_audio "${{ github.event.inputs.audio_url }}"
-          
-          echo ""
-          echo "=== Arquivos baixados ==="
-          ls -lh input_image input_audio
-          echo "========================="
+      - name: Rodar avatar pipeline
+        run: python run_avatar.py
 
-      # ==========================================================
-      # Gerar vídeo
-      # ==========================================================
-      - name: Gerar vídeo
-        run: |
-          python generate_avatar.py \
-            --image input_image \
-            --audio input_audio \
-            --output output.mp4
-
-      # ==========================================================
-      # Salvar artefato
-      # ==========================================================
-      - name: Salvar artefato
+      - name: Salvar artefato final (v4)
         uses: actions/upload-artifact@v4
         with:
-          name: avatar-video
-          path: output.mp4
-
-      # ==========================================================
-      # Limpar arquivos temporários (executa sempre)
-      # ==========================================================
-      - name: Limpar arquivos temporários
-        if: ${{ always() }}
-        run: |
-          rm -f input_image input_audio output.mp4
+          name: avatar-video-v4
+          path: output/result.mp4_with_audio.mp4
