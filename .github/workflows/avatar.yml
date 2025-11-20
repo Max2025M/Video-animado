@@ -23,9 +23,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ==========================================================
-      # Configurar Python
-      # ==========================================================
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -34,9 +31,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # ==========================================================
-      # Instalar dependências do sistema
-      # ==========================================================
       - name: Instalar dependências do sistema
         run: |
           sudo apt-get update && sudo apt-get install -y \
@@ -47,18 +41,12 @@ jobs:
             build-essential \
             && sudo rm -rf /var/lib/apt/lists/*
 
-      # ==========================================================
-      # Instalar dependências Python
-      # ==========================================================
       - name: Instalar dependências Python
         run: |
           python -m pip install --upgrade pip
           pip install Flask numpy opencv-python-headless moviepy==1.0.3 \
                       pydub librosa soundfile mediapipe "imageio[ffmpeg]"
 
-      # ==========================================================
-      # Baixar arquivos (links diretos do Google Drive)
-      # ==========================================================
       - name: Baixar arquivos
         run: |
           echo "[LOG] Baixando imagem..."
@@ -71,12 +59,9 @@ jobs:
           ls -lh input_image input_audio
           echo "========================="
 
-      # ==========================================================
-      # Cortar áudio (start/end)
-      # ==========================================================
       - name: Cortar áudio
         run: |
-          python - <<EOF
+          python - <<'END_PYTHON'
 import sys
 from pydub import AudioSegment
 
@@ -95,23 +80,17 @@ else:
 
 trimmed.export(audio_out, format="wav")
 print(f"[LOG] Áudio cortado salvo em {audio_out}, duração: {len(trimmed)/1000:.2f}s")
-EOF
+END_PYTHON
 
-      # ==========================================================
-      # Mostrar informações da imagem
-      # ==========================================================
       - name: Informações da imagem
         run: |
-          python - <<EOF
+          python - <<'END_PYTHON'
 import cv2
 img = cv2.imread("input_image")
 h, w = img.shape[:2]
 print(f"[LOG] Imagem input_image: {w}x{h} pixels")
-EOF
+END_PYTHON
 
-      # ==========================================================
-      # Gerar vídeo
-      # ==========================================================
       - name: Gerar vídeo
         run: |
           python generate_avatar.py \
@@ -119,18 +98,12 @@ EOF
             --audio input_audio_trimmed.wav \
             --output output.mp4
 
-      # ==========================================================
-      # Salvar artefato
-      # ==========================================================
       - name: Salvar artefato
         uses: actions/upload-artifact@v4
         with:
           name: avatar-video
           path: output.mp4
 
-      # ==========================================================
-      # Limpar arquivos temporários (executa sempre)
-      # ==========================================================
       - name: Limpar arquivos temporários
         if: ${{ always() }}
         run: |
