@@ -1,17 +1,36 @@
 import os
+import glob
 import gdown
 from subprocess import run
 
-INPUT_DIR = "input"
 OUTPUT_DIR = "output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-face_path = os.path.join(INPUT_DIR, "face.jpg")
-audio_path = os.path.join(INPUT_DIR, "audio.wav")
+# 1️⃣ Procurar arquivo de imagem na raiz
+image_extensions = ["*.jpg", "*.jpeg", "*.png"]
+image_files = []
+for ext in image_extensions:
+    image_files.extend(glob.glob(ext))
+
+if not image_files:
+    raise FileNotFoundError("Nenhuma imagem encontrada na raiz do projeto (.jpg, .jpeg, .png).")
+face_path = image_files[0]  # pegar a primeira imagem encontrada
+
+# 2️⃣ Procurar arquivo de áudio na raiz
+audio_extensions = ["*.wav", "*.mp3", "*.m4a"]
+audio_files = []
+for ext in audio_extensions:
+    audio_files.extend(glob.glob(ext))
+
+if not audio_files:
+    raise FileNotFoundError("Nenhum áudio encontrado na raiz do projeto (.wav, .mp3, .m4a).")
+audio_path = audio_files[0]  # pegar o primeiro áudio encontrado
+
+# Arquivos temporários
 wav2lip_out = os.path.join(OUTPUT_DIR, "wav2lip.mp4")
 final_out = os.path.join(OUTPUT_DIR, "result.mp4")
 
-# 1️⃣ Baixar modelos
+# 3️⃣ Baixar modelos
 wav2lip_model = "Wav2Lip.pth"
 fomm_model = "fomm.pth"
 
@@ -29,7 +48,7 @@ if not os.path.exists(fomm_model):
         quiet=False
     )
 
-# 2️⃣ Clonar Wav2Lip e rodar boca sincronizada
+# 4️⃣ Clonar Wav2Lip e rodar boca sincronizada
 if not os.path.exists("Wav2Lip"):
     run("git clone https://github.com/Rudrabha/Wav2Lip.git", shell=True)
 
@@ -39,11 +58,10 @@ run(
     shell=True
 )
 
-# 3️⃣ Clonar FOMM e rodar movimentos faciais e corporais
+# 5️⃣ Clonar FOMM e rodar movimentos completos
 if not os.path.exists("first-order-model"):
     run("git clone https://github.com/AliaksandrSiarohin/first-order-model.git", shell=True)
 
-# Usamos o vídeo gerado pelo Wav2Lip como driving video → todos os movimentos seguem o áudio
 run(
     f"python first-order-model/demo.py "
     f"--config first-order-model/config/vox-256.yaml "
@@ -54,10 +72,10 @@ run(
     shell=True
 )
 
-# 4️⃣ Reinsere o áudio original usando ffmpeg (caso FOMM remova o áudio)
+# 6️⃣ Reinsere o áudio original (ffmpeg)
 run(
     f"ffmpeg -y -i {final_out} -i {audio_path} -c:v copy -c:a aac -strict experimental {final_out}_with_audio.mp4",
     shell=True
 )
 
-print("Avatar final gerado em:", final_out + "_with_audio.mp4")
+print("Avatar final gerado com movimentos completos em:", final_out + "_with_audio.mp4")
