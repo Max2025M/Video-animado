@@ -70,18 +70,6 @@ jobs:
           echo "========================="
 
       # ==========================================================
-      # Mostrar informações da imagem
-      # ==========================================================
-      - name: Informações da imagem
-        run: |
-          python3 <<EOF
-import cv2
-img = cv2.imread("input_image")
-h, w = img.shape[:2]
-print(f"[LOG] Imagem input_image: {w}x{h} pixels")
-EOF
-
-      # ==========================================================
       # Gerar vídeo
       # ==========================================================
       - name: Gerar vídeo
