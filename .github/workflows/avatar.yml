@@ -53,24 +53,17 @@ jobs:
       - name: Instalar dependências Python
         run: |
           python -m pip install --upgrade pip
-          pip install Flask
-          pip install numpy
-          pip install opencv-python-headless
-          pip install moviepy==1.0.3
-          pip install pydub
-          pip install librosa
-          pip install soundfile
-          pip install mediapipe
-          pip install "imageio[ffmpeg]"
+          pip install Flask numpy opencv-python-headless moviepy==1.0.3 \
+                      pydub librosa soundfile mediapipe "imageio[ffmpeg]"
 
       # ==========================================================
       # Baixar arquivos (links diretos do Google Drive)
       # ==========================================================
       - name: Baixar arquivos
         run: |
-          echo "Baixando imagem..."
+          echo "[LOG] Baixando imagem..."
           wget -O input_image "${{ github.event.inputs.image_url }}"
-          echo "Baixando áudio..."
+          echo "[LOG] Baixando áudio..."
           wget -O input_audio "${{ github.event.inputs.audio_url }}"
           
           echo ""
